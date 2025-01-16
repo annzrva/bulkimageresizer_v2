@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
-  basePath: process.env.NODE_ENV === 'production' ? 'annzrva/bulkimageresizer_v2' : '',
+  basePath: process.env.NODE_ENV === 'production' ? '/bulkimageresizer_v2' : '',
 } as const;
 
 export default nextConfig;
