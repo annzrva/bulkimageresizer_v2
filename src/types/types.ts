@@ -1,21 +1,21 @@
-export type ImageResizerMode = 
-  | 'percentage'
-  | 'fileSize'
-  | 'dimensions';
-
-export type ImageFormat = 'jpeg' | 'png' | 'webp';
+export type ImageResizerMode = 'width' | 'height' | 'longestSide' | 'percentage' | 'fileSize' | 'dimensions';
 
 export interface ResizeOptions {
-  mode: ImageResizerMode;
-  percentage?: number;
-  maxFileSize?: number;
   width?: number;
   height?: number;
-  maxLength?: number;
-  maintainAspectRatio: boolean;
   quality: number;
-  format: ImageFormat;
-  backgroundColor: string;
-  usePadding: boolean;
-  originalAspectRatio?: number;
+  format: string;
+  backgroundColor?: string;
+  usePadding?: boolean;
+  percentage?: number;
+  maxLength?: number;
+}
+
+export interface ResizeDimensions {
+  width: number;
+  height: number;
+  imageWidth?: number;
+  imageHeight?: number;
+  offsetX?: number;
+  offsetY?: number;
 } 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useMotionValue, useSpring, motion } from "framer-motion";
-import { useCallback, useEffect, useRef } from "react";
+import { useMotionValue, motion, useMotionTemplate } from "framer-motion";
+import { useCallback, useRef } from "react";
 
 export const EvervaultCard = ({
   children,

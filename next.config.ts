@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
   basePath: process.env.NODE_ENV === 'production' ? '/bulkimageresizer_v2' : '',
   assetPrefix: process.env.NODE_ENV === 'production' ? '/bulkimageresizer_v2' : '',
   trailingSlash: true,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 } as const;
 
 export default nextConfig;

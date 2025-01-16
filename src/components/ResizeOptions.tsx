@@ -117,7 +117,7 @@ export default function ResizeOptions({ mode, filesCount, options, onChange }: R
         </div>
       )}
 
-      {mode === 'width' && (
+      {mode === ('width' as ImageResizerMode) && (
         <div className="space-y-4">
           <Label>Width (px)</Label>
           <Input
@@ -128,7 +128,7 @@ export default function ResizeOptions({ mode, filesCount, options, onChange }: R
         </div>
       )}
 
-      {mode === 'height' && (
+      {mode === ('height' as ImageResizerMode) && (
         <div className="space-y-4">
           <Label>Height (px)</Label>
           <Input
@@ -139,7 +139,7 @@ export default function ResizeOptions({ mode, filesCount, options, onChange }: R
         </div>
       )}
 
-      {mode === 'longestSide' && (
+      {mode === ('longestSide' as ImageResizerMode) && (
         <div className="space-y-4">
           <Label>Longest Side (px)</Label>
           <Input

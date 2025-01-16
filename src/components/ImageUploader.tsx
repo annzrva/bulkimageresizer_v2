@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, ChangeEvent } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from './ui/button';
 import { X, ChevronDown, ChevronUp, Upload } from 'lucide-react';
+import Image from 'next/image';
 
 interface ImageDimensions {
   width: number;
@@ -36,7 +37,7 @@ export default function ImageUploader({ onFilesSelected, maxFiles }: ImageUpload
 
   const getImageDimensions = (file: File): Promise<ImageDimensions> => {
     return new Promise((resolve) => {
-      const img = new Image();
+      const img = document.createElement('img');
       img.onload = () => {
         resolve({ width: img.width, height: img.height });
       };
@@ -62,12 +63,12 @@ export default function ImageUploader({ onFilesSelected, maxFiles }: ImageUpload
     }
   }, [maxFiles, onFilesSelected, uploadedFiles]);
 
-  const removeFile = (fileToRemove: ProcessedImageFile) => {
+  const removeFile = useCallback((fileToRemove: ProcessedImageFile) => {
     const updatedFiles = uploadedFiles.filter(f => f !== fileToRemove);
     setUploadedFiles(updatedFiles);
     onFilesSelected(updatedFiles.map(f => f.file));
     URL.revokeObjectURL(fileToRemove.preview);
-  };
+  }, [uploadedFiles, onFilesSelected]);
 
   useEffect(() => {
     return () => {
@@ -75,7 +76,7 @@ export default function ImageUploader({ onFilesSelected, maxFiles }: ImageUpload
         URL.revokeObjectURL(file.preview);
       });
     };
-  }, []);
+  }, [uploadedFiles]);
 
   const { getRootProps, getInputProps, open } = useDropzone({
     onDrop,
@@ -86,29 +87,60 @@ export default function ImageUploader({ onFilesSelected, maxFiles }: ImageUpload
     noClick: true
   });
 
+  const handleFileUpload = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      const files = Array.from(event.target.files);
+      onDrop(files);
+    }
+  }, [onDrop]);
+
   return (
     <div {...getRootProps()} className={`border-2 border-dashed rounded-lg transition-colors duration-200 ease-in-out h-[400px] overflow-y-auto ${isDragging ? 'border-primary bg-primary/5' : 'border-violet-300'} hover:border-violet-500`}>
       <div className="p-8">
-        <input {...getInputProps()} />
+        <input {...getInputProps()} onChange={handleFileUpload} />
         <div className="text-center mb-6">
           {uploadedFiles.length === 0 ? (
             <>
               <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
               <h3 className="text-2xl font-bold mb-4">Drop Images Here!</h3>
               <p className="text-xl mb-4">OR</p>
-              <Button className="bg-blue-500 hover:bg-blue-600 text-lg py-6 px-8" onClick={(e) => { e.stopPropagation(); open(); }}>Choose Images</Button>
+              <Button 
+                className="bg-blue-500 hover:bg-blue-600 text-lg py-6 px-8" 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  open(); 
+                }}
+              >
+                Choose Images
+              </Button>
             </>
           ) : (
             <div className="flex items-center justify-center gap-2 mb-4">
-              <Button className="bg-blue-500 hover:bg-blue-600" onClick={(e) => { e.stopPropagation(); open(); }}>Add More Images</Button>
-              <span className="text-sm text-gray-500">{uploadedFiles.length} {uploadedFiles.length === 1 ? 'file' : 'files'} selected</span>
+              <Button 
+                className="bg-blue-500 hover:bg-blue-600" 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  open(); 
+                }}
+              >
+                Add More Images
+              </Button>
+              <span className="text-sm text-gray-500">
+                {uploadedFiles.length} {uploadedFiles.length === 1 ? 'file' : 'files'} selected
+              </span>
             </div>
           )}
         </div>
 
         {uploadedFiles.length > 0 && (
           <div className="border rounded-lg overflow-hidden bg-white">
-            <div className="bg-gray-100 p-3 flex justify-between items-center cursor-pointer" onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}>
+            <div 
+              className="bg-gray-100 p-3 flex justify-between items-center cursor-pointer" 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                setIsExpanded(!isExpanded); 
+              }}
+            >
               <span className="font-medium">Uploaded Images ({uploadedFiles.length})</span>
               {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
             </div>
@@ -118,15 +150,30 @@ export default function ImageUploader({ onFilesSelected, maxFiles }: ImageUpload
                 <div className="grid grid-cols-1 gap-2 max-h-[400px] overflow-y-auto">
                   {uploadedFiles.map((processedFile, index) => (
                     <div key={`${processedFile.file.name}-${index}`} className="flex items-center gap-4 p-2 bg-gray-50 rounded hover:bg-gray-100">
-                      <img src={processedFile.preview} alt={processedFile.file.name} className="w-16 h-16 object-cover rounded" />
+                      <Image 
+                        src={processedFile.preview} 
+                        alt={processedFile.file.name} 
+                        className="w-16 h-16 object-cover rounded" 
+                        width={64} 
+                        height={64}
+                        unoptimized
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{processedFile.file.name}</p>
                         <p className="text-sm text-gray-500">
                           {formatFileSize(processedFile.file.size)} • 
-                          {processedFile.dimensions ? ` ${processedFile.dimensions.width}×${processedFile.dimensions.height}px` : ' Loading dimensions...'}
+                          {processedFile.dimensions ? 
+                            ` ${processedFile.dimensions.width}×${processedFile.dimensions.height}px` : 
+                            ' Loading dimensions...'}
                         </p>
                       </div>
-                      <button onClick={(e) => { e.stopPropagation(); removeFile(processedFile); }} className="p-1 hover:bg-red-100 rounded-full text-red-500">
+                      <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          removeFile(processedFile); 
+                        }} 
+                        className="p-1 hover:bg-red-100 rounded-full text-red-500"
+                      >
                         <X size={16} />
                       </button>
                     </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ImageResizerMode, ImageFormat, ResizeOptions } from '@/types/types';
+import { ImageResizerMode, ResizeOptions, ResizeDimensions } from '@/types/types';
 import ModeSelector from '@/components/ModeSelector';
 import ImageUploader from '@/components/ImageUploader';
 import ResizeOptionsPanel from '@/components/ResizeOptions';
@@ -11,26 +11,35 @@ import JSZip from 'jszip';
 
 type Step = 'upload' | 'settings';
 
+interface PaddedDimensions extends ResizeDimensions {
+  offsetX: number;
+  offsetY: number;
+  imageWidth: number;
+  imageHeight: number;
+}
+
+interface SimpleDimensions extends ResizeDimensions {
+  width: number;
+  height: number;
+}
+
 export default function ImageResizer() {
   const [currentStep, setCurrentStep] = useState<Step>('upload');
   const [selectedMode, setSelectedMode] = useState<ImageResizerMode>('percentage');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [resizeOptions, setResizeOptions] = useState<ResizeOptions>({
-    mode: 'percentage',
     percentage: 100,
     quality: 75,
-    format: 'jpeg' as ImageFormat,
+    format: 'jpeg',
     usePadding: false,
-    backgroundColor: '#ffffff',
-    maintainAspectRatio: true,
-    originalAspectRatio: undefined,
+    backgroundColor: '#ffffff'
   });
 
   const calculateDimensions = (
     originalWidth: number,
     originalHeight: number,
-    options: ResizeOptions
-  ): { width: number; height: number } => {
+    options: ResizeOptions & { mode: ImageResizerMode; maxLength?: number }
+  ): SimpleDimensions | PaddedDimensions => {
     switch (options.mode) {
       case 'percentage': {
         const scale = (options.percentage || 100) / 100;
@@ -41,9 +50,7 @@ export default function ImageResizer() {
       }
 
       case 'fileSize': {
-        // For file size, we start with 100% and gradually reduce until we meet target size
-        // This is a simplified version - in reality, you might want to use binary search
-        const scale = 0.8; // Start with 80% quality
+        const scale = 0.8;
         return {
           width: Math.round(originalWidth * scale),
           height: Math.round(originalHeight * scale)
@@ -51,27 +58,14 @@ export default function ImageResizer() {
       }
 
       case 'dimensions': {
-        console.log('Dimensions Mode - Input:', {
-          originalWidth,
-          originalHeight,
-          targetWidth: options.width,
-          targetHeight: options.height,
-          usePadding: options.usePadding,
-          maintainAspectRatio: options.maintainAspectRatio
-        });
-
         if (!options.width && !options.height) {
-          console.log('No dimensions specified, returning original dimensions');
           return { width: originalWidth, height: originalHeight };
         }
         
         const targetWidth = options.width || originalWidth;
         const targetHeight = options.height || originalHeight;
-        
-        console.log('Target dimensions:', { targetWidth, targetHeight });
 
         if (options.usePadding) {
-          // Padding logic - keep as is
           const scaleX = targetWidth / originalWidth;
           const scaleY = targetHeight / originalHeight;
           const scale = Math.min(scaleX, scaleY);
@@ -88,7 +82,6 @@ export default function ImageResizer() {
             offsetY: Math.round((targetHeight - scaledHeight) / 2)
           };
         } else {
-          // Direct resize without padding
           return {
             width: targetWidth,
             height: targetHeight
@@ -144,50 +137,32 @@ export default function ImageResizer() {
       const zip = new JSZip();
       
       for (const file of uploadedFiles) {
-        console.log('Processing file:', file.name);
         const img = new Image();
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Could not get canvas context');
         
-        await new Promise((resolve) => {
-          img.onload = () => {
-            console.log('Original image dimensions:', {
-              width: img.width,
-              height: img.height
-            });
-            setResizeOptions(prev => ({
-              ...prev,
-              originalAspectRatio: img.width / img.height
-            }));
-            resolve();
-          };
+        await new Promise<void>((resolve) => {
+          img.onload = () => resolve();
           img.src = URL.createObjectURL(file);
         });
 
-        // Calculate new dimensions
-        console.log('Resize options:', resizeOptions);
         const dimensions = calculateDimensions(
           img.width,
           img.height,
-          resizeOptions
+          { ...resizeOptions, mode: selectedMode }
         );
 
-        console.log('Calculated dimensions:', dimensions);
-
-        // Set canvas dimensions
         canvas.width = dimensions.width;
         canvas.height = dimensions.height;
 
-        // Fill background if specified
         if (resizeOptions.backgroundColor) {
-          ctx!.fillStyle = resizeOptions.backgroundColor;
-          ctx!.fillRect(0, 0, dimensions.width, dimensions.height);
+          ctx.fillStyle = resizeOptions.backgroundColor;
+          ctx.fillRect(0, 0, dimensions.width, dimensions.height);
         }
 
-        // Draw resized image with padding if specified
-        if ('offsetX' in dimensions) {
-          // Case with padding
-          ctx!.drawImage(
+        if (isPaddedDimensions(dimensions)) {
+          ctx.drawImage(
             img,
             dimensions.offsetX,
             dimensions.offsetY,
@@ -195,8 +170,7 @@ export default function ImageResizer() {
             dimensions.imageHeight
           );
         } else {
-          // Direct resize without padding
-          ctx!.drawImage(
+          ctx.drawImage(
             img,
             0,
             0,
@@ -205,24 +179,22 @@ export default function ImageResizer() {
           );
         }
 
-        // Convert to blob
         const blob = await new Promise<Blob>((resolve) => {
           canvas.toBlob(
-            (blob) => resolve(blob as Blob),
+            (blob) => {
+              if (blob) resolve(blob);
+              else throw new Error('Failed to create blob');
+            },
             `image/${resizeOptions.format}`,
             resizeOptions.quality / 100
           );
         });
 
-        // Add to zip
         const fileName = file.name.replace(/\.[^/.]+$/, '') + '.' + resizeOptions.format;
         zip.file(fileName, blob);
-
-        // Cleanup
         URL.revokeObjectURL(img.src);
       }
 
-      // Generate and download zip
       const content = await zip.generateAsync({ type: 'blob' });
       const downloadUrl = URL.createObjectURL(content);
       const link = document.createElement('a');
@@ -237,6 +209,13 @@ export default function ImageResizer() {
     }
   };
 
+  // Type guard for PaddedDimensions
+  const isPaddedDimensions = (
+    dimensions: SimpleDimensions | PaddedDimensions
+  ): dimensions is PaddedDimensions => {
+    return 'offsetX' in dimensions && 'imageWidth' in dimensions;
+  };
+
   const handleModeChange = (newMode: ImageResizerMode) => {
     console.log('Mode changed to:', newMode);
     
@@ -244,17 +223,13 @@ export default function ImageResizer() {
     
     setResizeOptions(prev => ({
       ...prev,
-      mode: newMode,
       percentage: newMode === 'percentage' ? 100 : undefined,
       width: undefined,
       height: undefined,
-      maxLength: undefined,
-      maintainAspectRatio: newMode === 'dimensions' ? true : undefined,
       quality: prev.quality,
       format: prev.format,
       usePadding: prev.usePadding,
-      backgroundColor: prev.backgroundColor,
-      originalAspectRatio: prev.originalAspectRatio
+      backgroundColor: prev.backgroundColor
     }));
   };
 
