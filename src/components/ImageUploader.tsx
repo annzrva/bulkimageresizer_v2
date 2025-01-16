@@ -35,7 +35,7 @@ export default function ImageUploader({ onFilesSelected, maxFiles }: ImageUpload
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const getImageDimensions = (file: File): Promise<ImageDimensions> => {
+  const getImageDimensions = useCallback((file: File): Promise<ImageDimensions> => {
     return new Promise((resolve) => {
       const img = document.createElement('img');
       img.onload = () => {
@@ -43,13 +43,13 @@ export default function ImageUploader({ onFilesSelected, maxFiles }: ImageUpload
       };
       img.src = URL.createObjectURL(file);
     });
-  };
+  }, []);
 
-  const processFile = async (file: File): Promise<ProcessedImageFile> => {
+  const processFile = useCallback(async (file: File): Promise<ProcessedImageFile> => {
     const dimensions = await getImageDimensions(file);
     const preview = URL.createObjectURL(file);
     return { file, preview, dimensions };
-  };
+  }, [getImageDimensions]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     try {
@@ -61,7 +61,7 @@ export default function ImageUploader({ onFilesSelected, maxFiles }: ImageUpload
     } catch (error) {
       console.error('Error handling dropped files:', error);
     }
-  }, [maxFiles, onFilesSelected, uploadedFiles]);
+  }, [maxFiles, onFilesSelected, uploadedFiles, processFile]);
 
   const removeFile = useCallback((fileToRemove: ProcessedImageFile) => {
     const updatedFiles = uploadedFiles.filter(f => f !== fileToRemove);

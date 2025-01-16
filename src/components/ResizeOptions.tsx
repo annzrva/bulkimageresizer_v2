@@ -155,7 +155,7 @@ export default function ResizeOptions({ mode, filesCount, options, onChange }: R
           <Label>Image Format</Label>
           <Select
             value={options.format}
-            onValueChange={(value) => updateOptions({ format: value as any })}
+            onValueChange={(value: string) => updateOptions({ format: value })}
           >
             <SelectTrigger>
               <SelectValue />
